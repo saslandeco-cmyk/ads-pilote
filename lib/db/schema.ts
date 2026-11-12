@@ -4,6 +4,7 @@ export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   sector: text("sector"),
+  targetCpa: numeric("target_cpa"),
   googleCustomerId: text("google_customer_id").unique(),
   status: text("status").notNull().default("À reconnecter"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

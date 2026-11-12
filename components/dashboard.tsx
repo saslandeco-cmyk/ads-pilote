@@ -10,6 +10,7 @@ import {
   Pause, Play, RefreshCw
 } from "lucide-react";
 import type { CampaignRow, ClientRow } from "@/lib/dashboard-data";
+import type { Finding } from "@/lib/rules-engine";
 
 type Stats = {
   totalSpend: number;
@@ -27,14 +28,30 @@ type DashboardProps = {
   initialCampaigns: CampaignRow[];
   clients: ClientRow[];
   dailySeries: DailyPoint[];
+  findings: Finding[];
   stats: Stats;
 };
 
-const recommendations = [
-  { id: 1, type: "Budget", title: "Réallouer le budget de GF Expertise", detail: "La campagne consomme 78 % de son budget avec un CPA en hausse. Réduire le budget quotidien de 10 % et surveiller les conversions.", impact: "Économie estimée : 25 €/mois", tone: "amber", tag: "À valider" },
-  { id: 2, type: "Mots-clés", title: "Ajouter 4 mots-clés négatifs", detail: "Les termes « formation plomberie » et « salaire plombier » génèrent des clics sans intention commerciale.", impact: "Dépenses évitables : 18 €", tone: "blue", tag: "Recommandé" },
-  { id: 3, type: "Enchères", title: "Ajuster l'objectif CPA", detail: "La campagne Menuiserie Dupont est sous son CPA cible depuis 14 jours. Une hausse progressive du budget peut être testée.", impact: "Potentiel : +3 conversions", tone: "green", tag: "Opportunité" },
-];
+const RULE_LABELS: Record<Finding["rule"], string> = {
+  spend_no_conversion: "Budget",
+  cpa_drift: "Enchères",
+  cpa_target_exceeded: "Enchères",
+  budget_pace_over: "Budget",
+  budget_pace_under: "Budget",
+  no_clicks: "Diffusion",
+};
+
+const SEVERITY_TONE: Record<Finding["severity"], string> = {
+  warning: "amber",
+  opportunity: "green",
+  info: "blue",
+};
+
+const SEVERITY_TAG: Record<Finding["severity"], string> = {
+  warning: "À valider",
+  opportunity: "Opportunité",
+  info: "Information",
+};
 
 const navItems = [
   { label: "Vue d'ensemble", icon: LayoutDashboard },
@@ -76,13 +93,13 @@ function areaPath(points: { x: number; y: number }[]) {
   return `${linePath(points)} L${points[points.length - 1].x.toFixed(1)} ${baseline} L${points[0].x.toFixed(1)} ${baseline} Z`;
 }
 
-export default function Dashboard({ initialCampaigns, clients, dailySeries, stats }: DashboardProps) {
+export default function Dashboard({ initialCampaigns, clients, dailySeries, findings, stats }: DashboardProps) {
   const [activeNav, setActiveNav] = useState("Vue d'ensemble");
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [filter, setFilter] = useState("Toutes");
   const [search, setSearch] = useState("");
-  const [approved, setApproved] = useState<number[]>([]);
-  const [dismissed, setDismissed] = useState<number[]>([]);
+  const [approved, setApproved] = useState<string[]>([]);
+  const [dismissed, setDismissed] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -92,16 +109,18 @@ export default function Dashboard({ initialCampaigns, clients, dailySeries, stat
     return matchesFilter && matchesSearch;
   }), [campaigns, filter, search]);
 
-  const pendingRecommendations = recommendations.filter((item) => !approved.includes(item.id) && !dismissed.includes(item.id));
+  const pendingFindings = findings.filter((item) => !approved.includes(item.id) && !dismissed.includes(item.id));
+  const warningCount = findings.filter((f) => f.severity === "warning").length;
+  const opportunityCount = findings.filter((f) => f.severity === "opportunity").length;
 
   const spendMax = Math.max(...dailySeries.map((d) => d.spend), 1);
   const spendPoints = useMemo(() => scalePoints(dailySeries.map((d) => d.spend)), [dailySeries]);
   const convPoints = useMemo(() => scalePoints(dailySeries.map((d) => d.conversions)), [dailySeries]);
   const chartLabelIndexes = [0, 7, 14, 21, dailySeries.length - 1].filter((i) => i >= 0 && i < dailySeries.length);
 
-  function approve(id: number) {
+  function approve(id: string) {
     setApproved((current) => [...current, id]);
-    setNotice("Optimisation validée dans la démonstration. Aucune action Google Ads réelle n'a été exécutée.");
+    setNotice("Marqué comme examiné localement. Aucune action n'a été envoyée à Google Ads.");
   }
 
   function toggleCampaign(id: number) {
@@ -202,12 +221,12 @@ export default function Dashboard({ initialCampaigns, clients, dailySeries, stat
             </div>
 
             <div className="panel ai-panel">
-              <div className="ai-panel-top"><div className="ai-icon"><Bot size={20}/></div><span className="ai-label">ADSPILOT INTELLIGENCE</span><span className="ai-status">EN LIGNE</span></div>
-              <h2>Votre copilote a détecté<br/>des opportunités.</h2>
-              <p className="ai-intro">L&apos;analyse automatique de vos comptes a identifié plusieurs optimisations potentielles.</p>
-              <div className="ai-insight"><div className="insight-icon amber"><AlertTriangle size={17}/></div><div><strong>1 point de vigilance</strong><small>Un coût par conversion en hausse</small></div></div>
-              <div className="ai-insight"><div className="insight-icon blue"><Lightbulb size={17}/></div><div><strong>2 opportunités détectées</strong><small>Budget et mots-clés à optimiser</small></div></div>
-              <div className="ai-bottom"><div><strong>3 recommandations</strong><small>Prêtes à être examinées</small></div><button onClick={() => setActiveNav("Optimisations IA")}>Examiner <ChevronRight size={15}/></button></div>
+              <div className="ai-panel-top"><div className="ai-icon"><Bot size={20}/></div><span className="ai-label">MOTEUR DE RÈGLES</span><span className="ai-status">EN LIGNE</span></div>
+              <h2>Analyse déterministe<br/>de vos campagnes.</h2>
+              <p className="ai-intro">Règles explicables appliquées à vos données réelles des 30 derniers jours. Aucune action n&apos;est exécutée automatiquement.</p>
+              <div className="ai-insight"><div className="insight-icon amber"><AlertTriangle size={17}/></div><div><strong>{warningCount} point{warningCount === 1 ? "" : "s"} de vigilance</strong><small>Seuils dépassés sur vos campagnes</small></div></div>
+              <div className="ai-insight"><div className="insight-icon blue"><Lightbulb size={17}/></div><div><strong>{opportunityCount} opportunité{opportunityCount === 1 ? "" : "s"} détectée{opportunityCount === 1 ? "" : "s"}</strong><small>Budget disponible non exploité</small></div></div>
+              <div className="ai-bottom"><div><strong>{findings.length} constat{findings.length === 1 ? "" : "s"}</strong><small>Prêts à être examinés</small></div><button onClick={() => setActiveNav("Optimisations IA")}>Examiner <ChevronRight size={15}/></button></div>
             </div>
           </section>
 
@@ -222,16 +241,17 @@ export default function Dashboard({ initialCampaigns, clients, dailySeries, stat
 
           <section className="bottom-grid">
             <div className="panel recommendations-panel">
-              <div className="panel-heading"><div><h2>Recommandations IA</h2><p>Les actions à examiner en priorité.</p></div><span className="count-pill">{pendingRecommendations.length} en attente</span></div>
+              <div className="panel-heading"><div><h2>Constats du moteur de règles</h2><p>Analyse réelle de vos campagnes, à examiner avant toute action.</p></div><span className="count-pill">{pendingFindings.length} en attente</span></div>
               <div className="recommendation-list">
-                {recommendations.filter((r) => !dismissed.includes(r.id)).map((r) => <div className="recommendation" key={r.id}>
-                  <div className={`recommendation-icon ${r.tone}`}>{r.type === "Budget" ? <Wallet size={17}/> : r.type === "Mots-clés" ? <Search size={17}/> : <Gauge size={17}/>}</div>
-                  <div className="recommendation-body"><div className="recommendation-meta"><span>{r.type}</span><b>{approved.includes(r.id) ? "Validée" : r.tag}</b></div><strong>{r.title}</strong><p>{r.detail}</p><div className="recommendation-impact">{r.impact}</div></div>
-                  <div className="recommendation-actions">{approved.includes(r.id) ? <span className="approved-label"><Check size={15}/> Validée</span> : <><button className="approve-button" onClick={() => approve(r.id)}>Valider</button><button className="dismiss-button" onClick={() => setDismissed((v) => [...v, r.id])} aria-label="Ignorer"><X size={16}/></button></>}</div>
+                {findings.filter((f) => !dismissed.includes(f.id)).map((f) => <div className="recommendation" key={f.id}>
+                  <div className={`recommendation-icon ${SEVERITY_TONE[f.severity]}`}>{RULE_LABELS[f.rule] === "Budget" ? <Wallet size={17}/> : RULE_LABELS[f.rule] === "Diffusion" ? <Search size={17}/> : <Gauge size={17}/>}</div>
+                  <div className="recommendation-body"><div className="recommendation-meta"><span>{RULE_LABELS[f.rule]}</span><b>{approved.includes(f.id) ? "Validée" : SEVERITY_TAG[f.severity]}</b></div><strong>{f.title}</strong><p>{f.detail}</p><div className="recommendation-impact">{f.metric}</div></div>
+                  <div className="recommendation-actions">{approved.includes(f.id) ? <span className="approved-label"><Check size={15}/> Validée</span> : <><button className="approve-button" onClick={() => approve(f.id)}>Marquer examiné</button><button className="dismiss-button" onClick={() => setDismissed((v) => [...v, f.id])} aria-label="Ignorer"><X size={16}/></button></>}</div>
                 </div>)}
-                {pendingRecommendations.length === 0 && <div className="empty-state">Toutes les recommandations ont été traitées.</div>}
+                {findings.length === 0 && <div className="empty-state">Aucune anomalie détectée sur vos campagnes actives.</div>}
+                {findings.length > 0 && pendingFindings.length === 0 && <div className="empty-state">Tous les constats ont été examinés.</div>}
               </div>
-              <button className="view-all-button" onClick={() => setActiveNav("Optimisations IA")}>Voir toutes les recommandations <ChevronRight size={15}/></button>
+              <button className="view-all-button" onClick={() => setActiveNav("Optimisations IA")}>Voir tous les constats <ChevronRight size={15}/></button>
             </div>
 
             <div className="panel clients-panel">

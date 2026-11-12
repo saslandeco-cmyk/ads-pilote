@@ -10,6 +10,7 @@ export default async function Home() {
       initialCampaigns={data.campaigns}
       clients={data.clients}
       dailySeries={data.dailySeries}
+      findings={data.findings}
       stats={data.stats}
     />
   );

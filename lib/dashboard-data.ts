@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client";
 import { clients, campaigns, campaignMetrics } from "@/lib/db/schema";
+import { evaluateAllCampaigns, type Finding } from "@/lib/rules-engine";
 
 export type CampaignRow = {
   id: number;
@@ -25,10 +26,16 @@ export type ClientRow = {
   color: string;
 };
 
+type Window = { spend: number; clicks: number; conversions: number };
+
 const CLIENT_COLORS = ["blue", "violet", "orange", "green"];
 
 function money(value: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
+}
+
+function emptyWindow(): Window {
+  return { spend: 0, clicks: 0, conversions: 0 };
 }
 
 export async function getDashboardData() {
@@ -42,20 +49,40 @@ export async function getDashboardData() {
   const fourteenDaysAgo = new Date(today);
   fourteenDaysAgo.setDate(today.getDate() - 14);
 
-  const byCampaign = new Map<number, { spend: number; clicks: number; conversions: number; recentSpend: number; previousSpend: number }>();
+  const byCampaign = new Map<number, { total: Window; last7: Window; prev7: Window; last14: Window }>();
   const byDate = new Map<string, { spend: number; conversions: number }>();
 
   for (const m of metricRows) {
     const cost = m.costMicros / 1_000_000;
     const conversions = Number(m.conversions);
-
-    const entry = byCampaign.get(m.campaignId) ?? { spend: 0, clicks: 0, conversions: 0, recentSpend: 0, previousSpend: 0 };
-    entry.spend += cost;
-    entry.clicks += m.clicks;
-    entry.conversions += conversions;
     const d = new Date(m.date);
-    if (d >= sevenDaysAgo) entry.recentSpend += cost;
-    else if (d >= fourteenDaysAgo) entry.previousSpend += cost;
+
+    const entry = byCampaign.get(m.campaignId) ?? {
+      total: emptyWindow(),
+      last7: emptyWindow(),
+      prev7: emptyWindow(),
+      last14: emptyWindow(),
+    };
+
+    entry.total.spend += cost;
+    entry.total.clicks += m.clicks;
+    entry.total.conversions += conversions;
+
+    if (d >= fourteenDaysAgo) {
+      entry.last14.spend += cost;
+      entry.last14.clicks += m.clicks;
+      entry.last14.conversions += conversions;
+    }
+    if (d >= sevenDaysAgo) {
+      entry.last7.spend += cost;
+      entry.last7.clicks += m.clicks;
+      entry.last7.conversions += conversions;
+    } else if (d >= fourteenDaysAgo) {
+      entry.prev7.spend += cost;
+      entry.prev7.clicks += m.clicks;
+      entry.prev7.conversions += conversions;
+    }
+
     byCampaign.set(m.campaignId, entry);
 
     const dayEntry = byDate.get(m.date) ?? { spend: 0, conversions: 0 };
@@ -67,10 +94,11 @@ export async function getDashboardData() {
   const clientById = new Map(clientRows.map((c) => [c.id, c]));
 
   const campaignsOut: CampaignRow[] = campaignRows.map((c) => {
-    const agg = byCampaign.get(c.id) ?? { spend: 0, clicks: 0, conversions: 0, recentSpend: 0, previousSpend: 0 };
+    const agg = byCampaign.get(c.id)?.total ?? emptyWindow();
     const client = clientById.get(c.clientId);
     const cpa = agg.conversions > 0 ? agg.spend / agg.conversions : 0;
-    const trendPct = agg.previousSpend > 0 ? ((agg.recentSpend - agg.previousSpend) / agg.previousSpend) * 100 : null;
+    const win = byCampaign.get(c.id);
+    const trendPct = win && win.prev7.spend > 0 ? ((win.last7.spend - win.prev7.spend) / win.prev7.spend) * 100 : null;
 
     return {
       id: c.id,
@@ -92,7 +120,7 @@ export async function getDashboardData() {
     const spend = theirCampaigns.reduce((s, c) => s + c.spend, 0);
     return {
       name: cl.name,
-      sector: "Compte Google Ads",
+      sector: cl.sector || "Secteur non renseigné",
       campaigns: theirCampaigns.length,
       spend: money(spend),
       status: cl.status,
@@ -128,10 +156,30 @@ export async function getDashboardData() {
     previous15.reduce((s, d) => s + d.conversions, 0)
   );
 
+  const findings: Finding[] = evaluateAllCampaigns(
+    campaignRows.map((c) => {
+      const client = clientById.get(c.clientId);
+      const win = byCampaign.get(c.id) ?? { total: emptyWindow(), last7: emptyWindow(), prev7: emptyWindow(), last14: emptyWindow() };
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        budgetMicros: c.budgetMicros,
+        clientName: client?.name ?? "Client inconnu",
+        clientSector: client?.sector ?? null,
+        clientTargetCpa: client?.targetCpa ? Number(client.targetCpa) : null,
+        last7: win.last7,
+        prev7: win.prev7,
+        last14: win.last14,
+      };
+    })
+  );
+
   return {
     campaigns: campaignsOut,
     clients: clientsOut,
     dailySeries,
+    findings,
     stats: {
       totalSpend,
       totalConversions,
