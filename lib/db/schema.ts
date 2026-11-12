@@ -23,6 +23,8 @@ export const campaigns = pgTable("campaigns", {
   googleCampaignId: text("google_campaign_id").notNull(),
   name: text("name").notNull(),
   channel: text("channel"),
+  status: text("status").notNull().default("Active"),
+  budgetMicros: bigint("budget_micros", { mode: "number" }),
 }, (table) => ({
   uniqueGoogleCampaign: uniqueIndex("campaigns_google_campaign_id_idx").on(table.googleCampaignId),
 }));
