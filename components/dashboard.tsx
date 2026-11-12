@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import {
-  Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Bell, Bot, BriefcaseBusiness,
-  CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3,
-  Command, CreditCard, Gauge, LayoutDashboard, Lightbulb, Menu, MoreHorizontal,
-  MousePointerClick, Plus, Search, Settings2, ShieldCheck, Sparkles, Target, Users,
-  Wallet, X, Zap, Filter, ChartNoAxesCombined, CircleDollarSign, SlidersHorizontal,
-  ExternalLink, Eye, Pause, Play, RefreshCw
+  AlertTriangle, ArrowDownRight, ArrowUpRight, Bell, Bot, BriefcaseBusiness,
+  CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp,
+  CreditCard, Gauge, LayoutDashboard, Lightbulb, Menu, MoreHorizontal,
+  Plus, Search, Settings2, ShieldCheck, Sparkles, Target, Users,
+  Wallet, X, Zap, Filter, ChartNoAxesCombined, CircleDollarSign,
+  Pause, Play, RefreshCw
 } from "lucide-react";
 
 type Campaign = {
@@ -55,7 +55,6 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [approved, setApproved] = useState<number[]>([]);
   const [dismissed, setDismissed] = useState<number[]>([]);
-  const [autoMode, setAutoMode] = useState(false);
   const [notice, setNotice] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -106,7 +105,7 @@ export default function Dashboard() {
         <button className={`nav-item ${activeNav === "Facturation" ? "active" : ""}`} onClick={() => setActiveNav("Facturation")}><CreditCard size={18}/><span>Facturation</span></button>
       </nav>
       <div className="sidebar-bottom">
-        <div className="help-card"><div className="help-icon"><CircleHelp size={17}/></div><strong>Besoin d'aide ?</strong><p>Consultez le guide de prise en main.</p><button onClick={() => setNotice("Le centre d'aide sera disponible dans une prochaine version.")}>Ouvrir le centre d'aide <ChevronRight size={14}/></button></div>
+        <div className="help-card"><div className="help-icon"><CircleHelp size={17}/></div><strong>Besoin d&apos;aide ?</strong><p>Consultez le guide de prise en main.</p><button onClick={() => setNotice("Le centre d'aide sera disponible dans une prochaine version.")}>Ouvrir le centre d&apos;aide <ChevronRight size={14}/></button></div>
         <div className="profile"><div className="profile-avatar">ML</div><div><strong>Mon compte</strong><small>Administrateur</small></div><MoreHorizontal size={18} className="muted"/></div>
       </div>
     </aside>
@@ -132,7 +131,7 @@ export default function Dashboard() {
         <div className="page-wrap">
           {notice && <div className="notice"><CheckCircle2 size={17}/><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Fermer"><X size={16}/></button></div>}
           <div className="page-heading">
-            <div><div className="eyebrow"><span className="live-dot"/> VOTRE ACTIVITÉ PUBLICITAIRE</div><h1>Vue d'ensemble</h1><p>Pilotez les performances de vos clients depuis un seul espace.</p></div>
+            <div><div className="eyebrow"><span className="live-dot"/> VOTRE ACTIVITÉ PUBLICITAIRE</div><h1>Vue d&apos;ensemble</h1><p>Pilotez les performances de vos clients depuis un seul espace.</p></div>
             <div className="heading-actions"><button className="button button-secondary" onClick={() => setNotice("Actualisation de démonstration terminée.")}><RefreshCw size={16}/> Actualiser</button><button className="button button-primary" onClick={() => { setActiveNav("Clients"); setNotice("Vous pouvez connecter un nouveau client depuis le module Clients."); }}><Plus size={17}/> Ajouter un client</button></div>
           </div>
 
@@ -164,7 +163,7 @@ export default function Dashboard() {
             <div className="panel ai-panel">
               <div className="ai-panel-top"><div className="ai-icon"><Bot size={20}/></div><span className="ai-label">ADSPILOT INTELLIGENCE</span><span className="ai-status">EN LIGNE</span></div>
               <h2>Votre copilote a détecté<br/>des opportunités.</h2>
-              <p className="ai-intro">L'analyse automatique de vos comptes a identifié plusieurs optimisations potentielles.</p>
+              <p className="ai-intro">L&apos;analyse automatique de vos comptes a identifié plusieurs optimisations potentielles.</p>
               <div className="ai-insight"><div className="insight-icon amber"><AlertTriangle size={17}/></div><div><strong>1 point de vigilance</strong><small>Un coût par conversion en hausse</small></div></div>
               <div className="ai-insight"><div className="insight-icon blue"><Lightbulb size={17}/></div><div><strong>2 opportunités détectées</strong><small>Budget et mots-clés à optimiser</small></div></div>
               <div className="ai-bottom"><div><strong>3 recommandations</strong><small>Prêtes à être examinées</small></div><button onClick={() => setActiveNav("Optimisations IA")}>Examiner <ChevronRight size={15}/></button></div>
